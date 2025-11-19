@@ -5,73 +5,79 @@ import pyttsx3
 import musicLibrary
 from openai import OpenAI
 import os
+
 load_dotenv()
 
 recognizer = sr.Recognizer()
 engine = pyttsx3.init()
 
 def speak(text):
-    engine.say(text)
-    engine.runAndWait()
+    try:
+        engine.say(text)
+        engine.runAndWait()
+    except Exception as e:
+        print("Speech error:", e)
 
 def aiProcess(command):
-    client = OpenAI(
-    api_key = os.getenv("OPENAI_API_KEY"),
-    )
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     response = client.responses.create(
         model="gpt-4o-mini",
-        input=f"You are Jarvis. Give very short, direct, and useful answers ONLY. No extra explanation. Respond in 5 lines maximum.\nUser: {command}"
+        input=f"You are Jarvis. Keep answers short.\nUser: {command}"
     )
-
-    return (response.output_text) 
+    return response.output_text
 
 def processCommand(c):
-    if "open google" in c.lower():
+    c = c.lower()
+
+    if "open google" in c:
         speak("Opening Google")
         webbrowser.open("https://google.com")
-    elif "open youtube" in c.lower():
+
+    elif "open youtube" in c:
         speak("Opening YouTube")
         webbrowser.open("https://youtube.com")
-    elif "open facebook" in c.lower():
-        speak("Opening facebook")
+
+    elif "open facebook" in c:
+        speak("Opening Facebook")
         webbrowser.open("https://facebook.com")
-    elif c.lower().startswith("play"):
-        song = c.lower().split(" ")[1]
-        link = musicLibrary.music[song]
-        webbrowser.open(link)
+
+    elif c.startswith("play"):
+        song = c.split(" ")[1]
+        if song in musicLibrary.music:
+            speak(f"Playing {song}")
+            webbrowser.open(musicLibrary.music[song])
+        else:
+            speak("Song not found")
+
     else:
-        #let OpenAI handle the request
         output = aiProcess(c)
-        print("\nJarvis:", output) 
+        print("Jarvis:", output)
         speak(output)
 
-    
 if __name__ == "__main__":
-    speak("Initializing Jarvis....")
+    speak("Initializing Jarvis...")
+
     while True:
-        # Listen for the wake word "Jarvis"
-        # obtain audio from the microphone
-        r = sr.Recognizer()
-         
-        print("recognizing...")
         try:
             with sr.Microphone() as source:
-                print("Listening...")
-                audio = r.listen(source, timeout=2, phrase_time_limit=1)
-            word = r.recognize_google(audio)
-            if(word.lower() == "jarvis"):
+                print("Listening for wake word...")
+                audio = recognizer.listen(source, timeout=2, phrase_time_limit=1)
+
+            word = recognizer.recognize_google(audio).lower()
+
+            if word == "jarvis":
                 speak("Yes boss")
-                # Listen for command
+
                 with sr.Microphone() as source:
                     print("Jarvis Active...")
-                    # speak("Yes boss")
-                    audio = r.listen(source)
-                    command = r.recognize_google(audio)
+                    audio = recognizer.listen(source)
 
-                    processCommand(command)
+                command = recognizer.recognize_google(audio)
+                print("You:", command)
 
+                # Speak AFTER mic closes
+                processCommand(command)
 
         except Exception as e:
-            print("Error; {0}".format(e))
-
+            print("Error:", e)
